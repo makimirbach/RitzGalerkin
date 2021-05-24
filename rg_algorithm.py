@@ -1,3 +1,8 @@
+from sympy.parsing.sympy_parser import parse_expr
+from sympy import *
+import re
+import numpy as np
+
 #lin (or constant) interpolation
 def preparation(x0,y0,x1=None, y1=None):
     if (x1 is None):
@@ -22,7 +27,7 @@ def get_u0(x0,y0,p0,x1,y1,p1):
     
     
 #Variations Equation; returns F(v) and A(u,v) forall u,v\in V
-def var_eq(a1,a0,x0,y0,p0,x1,y1,p1,f,u,up,v,vp,a2):
+def var_eq(x,a1,a0,x0,y0,p0,x1,y1,p1,f,u,up,v,vp,a2):
     #value from partial integration
     if p0 and p1:
         add = y0*v.evalf(subs={"x":x0})-y1*v.evalf(subs={"x":x1})
@@ -46,19 +51,19 @@ def var_eq(a1,a0,x0,y0,p0,x1,y1,p1,f,u,up,v,vp,a2):
     return [F, A]
 
 
-def get_les(a1,a0,x0,y0,p0,x1,y1,p1,f,u0,V,a2):
+def get_les(x,a1,a0,x0,y0,p0,x1,y1,p1,f,u0,V,a2):
     n = len(V)
     ma = np.zeros((n,n))
     vec = np.zeros((n))
     for i in range(n):
         d1 = parse_expr(str(V[i].diff()))     
-        vec[i] = var_eq(a1,a0,x0,y0,p0,x1,y1,p1,f,V[i],d1,V[i],d1,a2)[0] #anything for u, up
+        vec[i] = var_eq(x,a1,a0,x0,y0,p0,x1,y1,p1,f,V[i],d1,V[i],d1,a2)[0] #anything for u, up
         # subtract A(u0,vi)
         du = parse_expr(str(u0.diff()))
-        vec[i] = vec[i] - var_eq(a1,a0,x0,y0,p0,x1,y1,p1,f,u0,du,V[i],d1,a2)[1]
+        vec[i] = vec[i] - var_eq(x,a1,a0,x0,y0,p0,x1,y1,p1,f,u0,du,V[i],d1,a2)[1]
         for j in range(n):
             d2 = parse_expr(str(V[j].diff()))           
-            ma[j,i] = var_eq(a1,a0,x0,y0,p0,x1,y1,p1,f,V[i],d1,V[j],d2,a2)[1] 
+            ma[j,i] = var_eq(x,a1,a0,x0,y0,p0,x1,y1,p1,f,V[i],d1,V[j],d2,a2)[1] 
     return [ma,vec]
 
 def get_sol_fct(sol,V):
@@ -85,7 +90,7 @@ def get_deq(a1,a0,f,a2=1):
 
 def pretty_label(fct):
     # convert sympy function to latex string
-    fct_str = sympy.latex(fct)
+    fct_str = latex(fct)
     
     # round all decimal numbers in function string to have 2 digits
     simpledec = re.compile(r"\d*\.\d+")
@@ -100,17 +105,17 @@ def fct_to_str(fct, V):
     
     #round
     for v in V:
-        pretty_V.append(sympy.latex(v)) 
+        pretty_V.append(latex(v)) 
     fct_str = pretty_label(fct)
     # format output string
     return  f"${fct_str}$ with $V =\\left\\{{ {', '.join(pretty_V)}\\right\\}}$"
 
 #main
-def ritz_galerkin(a1,a0,x0,y0,p0,x1,y1,p1,f,V,col='red',a2=1):
+def ritz_galerkin(x,a1,a0,x0,y0,p0,x1,y1,p1,f,V,col='red',a2=1):
     #get u0
     u0 = get_u0(x0,y0,p0,x1,y1,p1)
     #get LES
-    les = get_les(a1,a0,x0,y0,p0,x1,y1,p1,f,u0,V,a2)
+    les = get_les(x,a1,a0,x0,y0,p0,x1,y1,p1,f,u0,V,a2)
     #solve LES
     sol = np.linalg.inv(les[0]).dot(les[1])
     #get 'solution'
@@ -121,7 +126,7 @@ def ritz_galerkin(a1,a0,x0,y0,p0,x1,y1,p1,f,V,col='red',a2=1):
     p[0].label = fct_to_str(fct, V)#"$" + latex(fct_round) + "$ with V = " +str(V)
     return (fct,p)
 
-def exact(diffeq,x0,y0,p0,x1,y1,p1,a2):
+def exact(u,x,diffeq,x0,y0,p0,x1,y1,p1,a2):
     sol = dsolve(diffeq,u(x)).rhs
     solp = sol.diff(x,1)
     #boundary conditions
